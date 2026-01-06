@@ -12,20 +12,58 @@
 
 <section id="bill-section">
   <h2>Чек</h2>
-  <ul id="bill-list"></ul>
+  <table id="bill-table" class="list-table">
+    <thead>
+      <tr>
+        <th>Позиция</th>
+        <th>Кол-во</th>
+        <th>Цена</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="bill-list"></tbody>
+  </table>
   <p>Итого: <span id="total-sum">0</span> ₽</p>
-  <button id="add-item-btn">Добавить позицию</button>
+
+  <h3>Добавить позицию</h3>
+  <form id="add-item-form">
+    <input type="text" id="item-name" placeholder="Название" required>
+    <input type="number" id="item-price" placeholder="Цена" min="0" step="0.01" required>
+    <input type="number" id="item-quantity" placeholder="Количество" min="1" step="1" value="1" required>
+    <button type="submit">Добавить</button>
+  </form>
 </section>
 
 <section id="people-section">
   <h2>Люди</h2>
-  <ul id="people-list"></ul>
-  <button id="add-person-btn">Добавить человека</button>
+  <table id="people-table" class="list-table">
+    <thead>
+      <tr>
+        <th>Имя</th>
+        <th>Позиции</th>
+      </tr>
+    </thead>
+    <tbody id="people-list"></tbody>
+  </table>
+
+  <h3>Добавить человека</h3>
+  <form id="add-person-form">
+    <input type="text" id="person-name" placeholder="Имя" required>
+    <button type="submit">Добавить</button>
+  </form>
 </section>
 
 <section id="remaining-section">
   <h2>Остатки</h2>
-  <ul id="remaining-list"></ul>
+  <table id="remaining-table" class="list-table">
+    <thead>
+      <tr>
+        <th>Позиция</th>
+        <th>Кол-во</th>
+      </tr>
+    </thead>
+    <tbody id="remaining-list"></tbody>
+  </table>
 </section>
 
 <section>
@@ -34,7 +72,15 @@
 
 <section id="result-section">
   <h2>Долг</h2>
-  <ul id="result-list"></ul>
+  <table id="result-table" class="list-table">
+    <thead>
+      <tr>
+        <th>Человек</th>
+        <th>Долг</th>
+      </tr>
+    </thead>
+    <tbody id="result-list"></tbody>
+  </table>
 </section>
 
 <script type="module" src="./src/main.js"></script>
