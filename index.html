@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Raskidator</title>
+  <link rel="stylesheet" href="./src/style.css">
+</head>
+<body>
+
+<h1>Raskidator</h1>
+
+<section id="bill-section">
+  <h2>Чек</h2>
+  <ul id="bill-list"></ul>
+  <p>Итого: <span id="total-sum">0</span> ₽</p>
+  <button id="add-item-btn">Добавить позицию</button>
+</section>
+
+<section id="people-section">
+  <h2>Люди</h2>
+  <ul id="people-list"></ul>
+  <button id="add-person-btn">Добавить человека</button>
+</section>
+
+<section id="remaining-section">
+  <h2>Остатки</h2>
+  <ul id="remaining-list"></ul>
+</section>
+
+<section>
+  <button id="calc-debt-btn">Раскидать долг</button>
+</section>
+
+<section id="result-section">
+  <h2>Долг</h2>
+  <ul id="result-list"></ul>
+</section>
+
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
