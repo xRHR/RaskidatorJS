@@ -25,10 +25,7 @@ jobs:
       - name: Deploy to gh-pages
         uses: peaceiris/actions-gh-pages@v3
         with:
-          # Use PERSONAL_TOKEN (recommended) if GITHUB_TOKEN lacks push permission.
-          # Create a repo secret named PERSONAL_TOKEN with a PAT (repo scope),
-          # or keep using GITHUB_TOKEN if repository settings allow write access.
-          personal_token: ${{ secrets.PERSONAL_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./dist
           publish_branch: gh-pages
           allow_empty_commit: false
