@@ -1,5 +1,5 @@
   // === State ===
-  let bill = []; // {name, price, quantity}
+  let bill = []; // {name, price, quantity, shareable}
   let people = []; // {name, items: [{name, price, quantity}]}
 
   // === DOM ===
@@ -10,13 +10,8 @@
   const calcDebtBtn = document.getElementById('calc-debt-btn');
   const resultList = document.getElementById('result-list'); // tbody
 
-  const addItemForm = document.getElementById('add-item-form');
-  const itemNameInput = document.getElementById('item-name');
-  const itemPriceInput = document.getElementById('item-price');
-  const itemQuantityInput = document.getElementById('item-quantity');
-
-  const addPersonForm = document.getElementById('add-person-form');
-  const personNameInput = document.getElementById('person-name');
+  const addItemBtn = document.getElementById('add-item-btn');
+  const addPersonBtn = document.getElementById('add-person-btn');
 
   // === Renderers ===
   // helper: total allocated quantity for an item name across all people
@@ -38,7 +33,7 @@
       const tdLabel = document.createElement('td');
       const label = document.createElement('span');
       label.className = 'item-label';
-      label.textContent = item.name;
+      label.textContent = item.name + (item.shareable ? ' 👥' : '');
       tdLabel.appendChild(label);
 
       const tdQty = document.createElement('td');
@@ -69,6 +64,17 @@
       tdPrice.textContent = `${item.price.toFixed(2)} ₽`;
 
       const tdAction = document.createElement('td');
+      const shareBtn = document.createElement('button');
+      shareBtn.textContent = item.shareable ? '👥' : '👤';
+      shareBtn.className = 'btn-toggle';
+      shareBtn.title = item.shareable ? 'Отменить дележку' : 'Сделать делимой';
+      shareBtn.type = 'button';
+      shareBtn.onclick = () => {
+        item.shareable = !item.shareable;
+        renderBill();
+      };
+      tdAction.appendChild(shareBtn);
+
       const deleteBtn = document.createElement('button');
       deleteBtn.textContent = '✕';
       deleteBtn.className = 'btn-delete';
@@ -203,45 +209,136 @@
     });
   }
 
+  function getAvailableItems() {
+    const available = bill.map(i => ({...i}));
+    people.forEach(p => {
+      p.items.forEach(it => {
+        const billItem = bill.find(b => b.name === it.name);
+        const a = available.find(av => av.name === it.name);
+        // For non-shareable items, subtract from available
+        // For shareable items, don't subtract (can be assigned to multiple people)
+        if (a && billItem && !billItem.shareable) {
+          a.quantity -= it.quantity;
+        }
+      });
+    });
+    return available.filter(i => i.quantity > 0);
+  }
+
   function getRemainingItems() {
     const remaining = bill.map(i => ({...i}));
     people.forEach(p => {
       p.items.forEach(it => {
+        const billItem = bill.find(b => b.name === it.name);
         const r = remaining.find(rem => rem.name === it.name);
-        if (r) r.quantity -= it.quantity;
+        // For non-shareable items, subtract from remaining
+        // For shareable items, don't subtract (they stay available)
+        if (r && billItem && !billItem.shareable) {
+          r.quantity -= it.quantity;
+        }
       });
     });
-    return remaining.filter(i => i.quantity > 0);
+    // Filter: remove items with 0 quantity, and remove shareable items if assigned to anyone
+    return remaining.filter(i => {
+      if (i.quantity <= 0) return false;
+      const billItem = bill.find(b => b.name === i.name);
+      if (billItem && billItem.shareable) {
+        // Check if this shareable item is assigned to anyone
+        const isAssigned = people.some(p => p.items.some(it => it.name === i.name));
+        return !isAssigned;
+      }
+      return true;
+    });
   }
 
   // === Form handlers ===
-  addItemForm.addEventListener('submit', e => {
-    e.preventDefault();
-    const name = itemNameInput.value.trim();
-    const price = parseFloat(itemPriceInput.value);
-    const quantity = parseInt(itemQuantityInput.value, 10);
+  // === Modal: add item ===
+  function showAddItemModal() {
+    const modal = document.createElement('div');
+    modal.classList.add('modal');
 
-    if (!name || isNaN(price) || isNaN(quantity) || price <= 0 || quantity <= 0) return;
+    const form = document.createElement('form');
+    form.classList.add('modal-form');
+    form.innerHTML = `
+      <h3>Добавить позицию</h3>
+      <label>Название: 
+        <input type="text" id="modal-item-name" placeholder="Название" required>
+      </label>
+      <label>Цена: 
+        <input type="number" id="modal-item-price" placeholder="Цена" min="0" step="1" required>
+      </label>
+      <label>Количество: 
+        <input type="number" id="modal-item-quantity" placeholder="Количество" min="1" step="1" value="1" required>
+      </label>
+      <button type="submit">Добавить</button>
+      <button type="button" id="modal-cancel-item">Отмена</button>
+    `;
 
-    bill.push({name, price, quantity});
-    renderBill();
+    const nameInput = form.querySelector('#modal-item-name');
+    const priceInput = form.querySelector('#modal-item-price');
+    const quantityInput = form.querySelector('#modal-item-quantity');
 
-    addItemForm.reset();
-  });
+    form.querySelector('#modal-cancel-item').onclick = () => modal.remove();
 
-  addPersonForm.addEventListener('submit', e => {
-    e.preventDefault();
-    const name = personNameInput.value.trim();
-    if (!name) return;
-    people.push({name, items: []});
-    renderPeople();
-    addPersonForm.reset();
-  });
+    form.onsubmit = e => {
+      e.preventDefault();
+      const name = nameInput.value.trim();
+      const price = parseFloat(priceInput.value);
+      const quantity = parseInt(quantityInput.value, 10);
+
+      if (!name || isNaN(price) || isNaN(quantity) || price <= 0 || quantity <= 0) return;
+
+      bill.push({name, price, quantity, shareable: false});
+      renderBill();
+      modal.remove();
+    };
+
+    modal.appendChild(form);
+    document.body.appendChild(modal);
+    nameInput.focus();
+  }
+
+  // === Modal: add person ===
+  function showAddPersonModal() {
+    const modal = document.createElement('div');
+    modal.classList.add('modal');
+
+    const form = document.createElement('form');
+    form.classList.add('modal-form');
+    form.innerHTML = `
+      <h3>Добавить человека</h3>
+      <label>Имя: 
+        <input type="text" id="modal-person-name" placeholder="Имя" required>
+      </label>
+      <button type="submit">Добавить</button>
+      <button type="button" id="modal-cancel-person">Отмена</button>
+    `;
+
+    const nameInput = form.querySelector('#modal-person-name');
+
+    form.querySelector('#modal-cancel-person').onclick = () => modal.remove();
+
+    form.onsubmit = e => {
+      e.preventDefault();
+      const name = nameInput.value.trim();
+      if (!name) return;
+      people.push({name, items: []});
+      renderPeople();
+      modal.remove();
+    };
+
+    modal.appendChild(form);
+    document.body.appendChild(modal);
+    nameInput.focus();
+  }
+
+  addItemBtn.addEventListener('click', showAddItemModal);
+  addPersonBtn.addEventListener('click', showAddPersonModal);
 
   // === Modal: add item to person ===
   function showAddItemToPerson(personIdx) {
-    const remaining = getRemainingItems();
-    if (remaining.length === 0) return; // no remaining items
+    const available = getAvailableItems();
+    if (available.length === 0) return; // no available items
 
     const modal = document.createElement('div');
     modal.classList.add('modal');
@@ -262,7 +359,7 @@
 
     const select = form.querySelector('#select-item');
     const quantityInput = form.querySelector('#item-quantity-person');
-    remaining.forEach(it => {
+    available.forEach(it => {
       const opt = document.createElement('option');
       opt.value = it.name;
       opt.textContent = `${it.name} — ${it.quantity} шт`;
@@ -270,7 +367,7 @@
     });
 
     const updateMaxQuantity = () => {
-      const selectedItem = remaining.find(it => it.name === select.value);
+      const selectedItem = available.find(it => it.name === select.value);
       if (selectedItem) {
         quantityInput.max = selectedItem.quantity;
         if (!quantityInput.value) quantityInput.value = 1;
@@ -289,7 +386,7 @@
       e.preventDefault();
       const name = select.value;
       const quantity = parseInt(quantityInput.value, 10);
-      const item = remaining.find(it => it.name === name);
+      const item = available.find(it => it.name === name);
       if (!item || quantity <= 0 || quantity > item.quantity) return;
 
       people[personIdx].items.push({name: item.name, price: item.price, quantity});
@@ -307,11 +404,55 @@
     if (remaining.length > 0) return alert('Есть остатки, нельзя раскидать');
 
     resultList.innerHTML = '';
+    
+    // Accumulate debt per person
+    const debt = {};
     people.forEach(p => {
-      const sum = p.items.reduce((s, it) => s + it.price * it.quantity, 0);
+      debt[p.name] = 0;
+    });
+
+    // Track which shareable items we've already processed
+    const processedShareable = new Set();
+
+    // Process each person's items
+    people.forEach(p => {
+      p.items.forEach(it => {
+        const billItem = bill.find(b => b.name === it.name);
+        if (!billItem) return;
+
+        if (billItem.shareable) {
+          // Check if we've already processed this shareable item
+          if (processedShareable.has(it.name)) return;
+          processedShareable.add(it.name);
+
+          // Find all people who have this shareable item
+          const peopleWithItem = new Set();
+          people.forEach(person => {
+            if (person.items.some(item => item.name === it.name)) {
+              peopleWithItem.add(person.name);
+            }
+          });
+
+          // Get total cost for this bill item
+          const totalCost = billItem.price * billItem.quantity;
+
+          // Divide equally among people who have it
+          const costPerPerson = totalCost / peopleWithItem.size;
+          peopleWithItem.forEach(personName => {
+            debt[personName] += costPerPerson;
+          });
+        } else {
+          // Non-shareable: person pays full cost of their portion
+          debt[p.name] += it.price * it.quantity;
+        }
+      });
+    });
+
+    // Render results
+    Object.entries(debt).forEach(([name, sum]) => {
       const tr = document.createElement('tr');
       const tdName = document.createElement('td');
-      tdName.textContent = p.name;
+      tdName.textContent = name;
       const tdSum = document.createElement('td');
       tdSum.textContent = `${sum.toFixed(2)} ₽`;
       tr.appendChild(tdName);
