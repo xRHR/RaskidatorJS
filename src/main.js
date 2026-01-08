@@ -81,9 +81,9 @@
       deleteBtn.title = 'Удалить позицию';
       deleteBtn.type = 'button';
       deleteBtn.onclick = () => {
-        const remaining = getRemainingItems();
-        if (remaining.length === 0) {
-          alert('Нельзя удалять позиции, когда нет остатков');
+        const allocated = getAllocatedQuantity(item.name);
+        if (allocated > 0) {
+          alert(`Нельзя удалить позицию, которая назначена людям (назначено ${allocated} шт)`);
           return;
         }
         bill.splice(idx, 1);
@@ -288,6 +288,12 @@
 
       if (!name || isNaN(price) || isNaN(quantity) || price <= 0 || quantity <= 0) return;
 
+      // Check for duplicate item names
+      if (bill.some(item => item.name === name)) {
+        alert(`Позиция "${name}" уже существует`);
+        return;
+      }
+
       bill.push({name, price, quantity, shareable: false});
       renderBill();
       modal.remove();
@@ -322,6 +328,13 @@
       e.preventDefault();
       const name = nameInput.value.trim();
       if (!name) return;
+
+      // Check for duplicate person names
+      if (people.some(person => person.name === name)) {
+        alert(`Человек "${name}" уже добавлен`);
+        return;
+      }
+
       people.push({name, items: []});
       renderPeople();
       modal.remove();
@@ -338,7 +351,10 @@
   // === Modal: add item to person ===
   function showAddItemToPerson(personIdx) {
     const available = getAvailableItems();
-    if (available.length === 0) return; // no available items
+    if (available.length === 0) {
+      alert('Нет доступных позиций для добавления');
+      return;
+    }
 
     const modal = document.createElement('div');
     modal.classList.add('modal');
@@ -405,10 +421,10 @@
 
     resultList.innerHTML = '';
     
-    // Accumulate debt per person
-    const debt = {};
+    // Accumulate debt per person (in kopeks to avoid float errors)
+    const debtKopeks = {};
     people.forEach(p => {
-      debt[p.name] = 0;
+      debtKopeks[p.name] = 0;
     });
 
     // Track which shareable items we've already processed
@@ -433,28 +449,35 @@
             }
           });
 
-          // Get total cost for this bill item
-          const totalCost = billItem.price * billItem.quantity;
+          // Get total cost for this bill item (in kopeks)
+          const totalCostKopeks = Math.round(billItem.price * billItem.quantity * 100);
 
           // Divide equally among people who have it
-          const costPerPerson = totalCost / peopleWithItem.size;
+          const costPerPersonKopeks = Math.floor(totalCostKopeks / peopleWithItem.size);
+          const remainder = totalCostKopeks % peopleWithItem.size;
+          
+          let index = 0;
           peopleWithItem.forEach(personName => {
-            debt[personName] += costPerPerson;
+            // Distribute remainder by adding 1 kopek to first few people
+            const adjustment = index < remainder ? 1 : 0;
+            debtKopeks[personName] += costPerPersonKopeks + adjustment;
+            index++;
           });
         } else {
           // Non-shareable: person pays full cost of their portion
-          debt[p.name] += it.price * it.quantity;
+          const costKopeks = Math.round(it.price * it.quantity * 100);
+          debtKopeks[p.name] += costKopeks;
         }
       });
     });
 
-    // Render results
-    Object.entries(debt).forEach(([name, sum]) => {
+    // Render results (convert back to rubles)
+    Object.entries(debtKopeks).forEach(([name, kopeks]) => {
       const tr = document.createElement('tr');
       const tdName = document.createElement('td');
       tdName.textContent = name;
       const tdSum = document.createElement('td');
-      tdSum.textContent = `${sum.toFixed(2)} ₽`;
+      tdSum.textContent = `${(kopeks / 100).toFixed(2)} ₽`;
       tr.appendChild(tdName);
       tr.appendChild(tdSum);
       resultList.appendChild(tr);
